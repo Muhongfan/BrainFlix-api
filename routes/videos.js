@@ -1,24 +1,30 @@
-const SERVER_URL = process.env.SERVER_URL;
+const SERVER_URL = process.env.SERVER_URL || 8089;
 
 const express = require("express");
 const router = express.Router();
 const { v4: uuid } = require("uuid");
 const fs = require("fs");
 const multer = require("multer");
+const path = require('path');
+
 
 const VIDEO_DETAILS_DATA_FILE = "./data/video-details.json";
 const uploadVideoPreview = "/images/Upload-video-preview.jpg";
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "./public/images"); // Specify the directory where images will be stored
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    cb(null, uuid() + ext); // Generate a unique filename for the uploaded image
-  },
-});
 
+// Define storage for uploaded files
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, 'public/images');
+    },
+    filename: function (req, file, cb) {
+      cb(null, Date.now() + path.extname(file.originalname));
+    }
+  });
+
+  // Initialize multer instance with the storage options
 const upload = multer({ storage: storage });
+
+
 
 const readVideos = () => {
   const videosData = JSON.parse(fs.readFileSync(VIDEO_DETAILS_DATA_FILE));
@@ -43,24 +49,26 @@ router.get("/:id", (req, res) => {
 });
 
 // POST /videos - Add a new video
-router.post("/", upload.single("thumbnail"), (req, res) => {
+router.post("/", upload.single('thumbnail'),  (req, res) => {
   const videosData = readVideos();
-  const videoImage = SERVER_URL + uploadVideoPreview;
-  console.log(videoImage);
-//   const thumbnail = req.file;
-//   console.log(thumbnail);
+  const thumbnail = req.file; // The uploaded image file
+  let imgPath;
 
-  // Check if a thumbnail was provided
-//   if (!thumbnail) {
-//     return res.status(400).json({ error: "Thumbnail is required" });
-//   }
+//   const videoImage = SERVER_URL + uploadVideoPreview;
+if (!thumbnail) {
+    imgPath = SERVER_URL + uploadVideoPreview;
+    // return res.status(400).json({ error: 'Thumbnail is required' });
+  }
+  else{
+    imgPath = SERVER_URL + thumbnail.path;
+  }
+
   const newVideoObj = {
     id: uuid(),
-    // image: thumbnail.path,
     title: req.body.title,
     description: req.body.description,
     comments:"",
-    image: videoImage,
+    image: imgPath, 
     timestamp: Date.now(),
   };
 
@@ -79,7 +87,6 @@ router.post("/:id/comments", (req, res) => {
   }
   const currentVideosComment = currentVideo.comments;
 
-  console.log(currentVideosComment);
   const { name, comment } = req.body;
   const newComment = {
     id: uuid(),
